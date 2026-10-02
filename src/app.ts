@@ -182,7 +182,7 @@ function readHash(): { seed?: number; config?: SceneConfig } {
 
 /** Lays a possibly partial config over the defaults, keeping only numbers. */
 function mergeConfig(raw: unknown): SceneConfig {
-  const num = (v: unknown, fallback: number) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+  const num = (v: unknown, fallback: number, max = Infinity) => (typeof v === "number" && Number.isFinite(v) ? Math.min(v, max) : fallback);
   const r = (raw ?? {}) as Record<string, Record<string, Record<string, unknown>> & Record<string, unknown>>;
   const d = DEFAULT_CONFIG;
   const objects = { ...d.objects };
@@ -194,12 +194,12 @@ function mergeConfig(raw: unknown): SceneConfig {
   return {
     glyph: num(r.glyph, d.glyph),
     speed: num(r.speed, d.speed),
-    bloom: num(r.bloom, d.bloom),
+    bloom: num(r.bloom, d.bloom, 0.2),
     stars: {
-      hero: num(st.hero, d.stars.hero),
+      hero: num(st.hero, d.stars.hero, 50),
       edge: num(st.edge, d.stars.edge),
       edgeWidth: num(st.edgeWidth, d.stars.edgeWidth),
-      size: num(st.size, d.stars.size),
+      size: num(st.size, d.stars.size, 20),
       twinkle: num(st.twinkle, d.stars.twinkle),
       tint: num(st.tint, d.stars.tint),
       textBuffer: num(st.textBuffer, d.stars.textBuffer),

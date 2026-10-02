@@ -1,14 +1,15 @@
-import { Grid, clamp, mix, mulberry32, smooth } from "./engine";
+import { Grid, clamp, hash, mix, mulberry32, smooth } from "./engine";
 import { OBJECT_IDS } from "./types";
 import type { Def, Item, ObjectId, Palette, SceneConfig, SceneView, StarOut } from "./types";
 
 export type Rect = { x0: number; y0: number; x1: number; y1: number };
-type Star = { x: number; y: number; ph: number; sp: number; b: number; tint: number };
+type Star = { x: number; y: number; ph: number; sp: number; b: number; tint: number; anchor?: boolean };
 
 /** Most objects of one kind the controls allow. */
 export const MAX_PER_TYPE = 10;
-/** Star candidates sit one per cell of this size: the densest the starfield can get (40 per 100k px²). */
-const STAR_CELL = 50;
+/** The densest the starfield can get, in stars per 100k px². Star candidates sit one per cell of the matching size. */
+export const MAX_STAR_DENSITY = 50;
+const STAR_CELL = Math.sqrt(100_000 / MAX_STAR_DENSITY);
 const STAR_SCALE = [0.9, 1, 1.15]; // glyph size per star kind: . + *
 const STAR_GLYPH = [".", "+", "*"];
 /** The bloom is painted at 1/3 size, then scaled up and softened. */
@@ -51,6 +52,8 @@ export class Scene implements SceneView {
   private groups = Object.fromEntries(OBJECT_IDS.map((id) => [id, [] as Item[]])) as Record<ObjectId, Item[]>;
   private slots = Object.fromEntries(OBJECT_IDS.map((id) => [id, [] as { x: number; y: number }[]])) as Record<ObjectId, { x: number; y: number }[]>;
   private starsByKind: Star[][] = [[], [], []];
+  /** The scattered stars alone; the sky as drawn also has each constellation's stars (see composeStars). */
+  private baseStars: Star[][] = [[], [], []];
   private ready = false;
   private glowCells: number[] = [];
   private bloomCanvas: HTMLCanvasElement | null = null;
@@ -97,6 +100,7 @@ export class Scene implements SceneView {
     this.cfg = next;
     if (next.glyph !== prev.glyph && this.vw) this.g.resize(this.vw, this.vh, next.glyph);
     if (JSON.stringify(next.stars) !== JSON.stringify(prev.stars)) this.rebuildStars();
+    if (this.ready && next.objects.constellation.size !== prev.objects.constellation.size) this.composeStars();
     if (this.ready) {
       if (next.stars.textBuffer !== prev.stars.textBuffer) {
         this.buildSlots();
@@ -132,13 +136,14 @@ export class Scene implements SceneView {
     for (let k = 0; k < MAX_PER_TYPE; k++) {
       for (const d of this.defs) {
         const r = this.cfg.objects[d.id].size * this.scale * 0.6;
+        const edge = Math.max(inset, r); // keep a whole object inside the frame
         let best = { x: this.x0 + this.W / 2, y: this.y0 + this.H / 2 };
         let bd = -1e9;
         // Pass 0 keeps clear of the headline. On a screen too narrow for that, pass 1 just spreads things out.
         for (let pass = 0; pass < 2 && bd === -1e9; pass++) {
           for (let c = 0; c < 30; c++) {
-            const x = this.x0 + inset + rng() * Math.max(1, this.W - 2 * inset);
-            const y = this.y0 + inset + rng() * Math.max(1, this.H - 2 * inset);
+            const x = this.x0 + edge + rng() * Math.max(1, this.W - 2 * edge);
+            const y = this.y0 + edge + rng() * Math.max(1, this.H - 2 * edge);
             if (pass === 0 && ex && x > ex.x0 - r && x < ex.x1 + r && y > ex.y0 - r && y < ex.y1 + r) continue;
             let dmin = 1e9;
             for (const o of placed) dmin = Math.min(dmin, Math.hypot(x - o.x, y - o.y) - o.r - r);
@@ -171,6 +176,7 @@ export class Scene implements SceneView {
       while (list.length < n) list.push(this.makeItem(d, list.length));
     }
     this.items = this.defs.flatMap((d) => this.groups[d.id]);
+    this.composeStars();
   }
 
   private relocate() {
@@ -180,6 +186,7 @@ export class Scene implements SceneView {
       it.y = slot.y;
       if (!it.awake) it.s = it.def.init(it, this);
     }
+    this.composeStars();
   }
 
   /* ───────── stars ───────── */
@@ -201,9 +208,9 @@ export class Scene implements SceneView {
         const kr = rng();
         const star: Star = { x, y, ph: rng() * Math.PI * 2, sp: 0.6 + rng() * 1.8, b: 0.26 + rng() * 0.5, tint: rng() };
         const kind = kr < 0.62 ? 0 : kr < 0.88 ? 1 : 2;
-        const pHero = (hero / 40) * smooth(this.hero.y1 + 220, this.hero.y1, y);
+        const pHero = (hero / MAX_STAR_DENSITY) * smooth(this.hero.y1 + 220, this.hero.y1, y);
         const edgeDist = Math.min(x, this.pageW - x) / this.pageW;
-        const pEdge = (edge / 40) * smooth(edgeWidth, 0, edgeDist);
+        const pEdge = (edge / MAX_STAR_DENSITY) * smooth(edgeWidth, 0, edgeDist);
         let p = Math.max(pHero, pEdge);
         if (ex) {
           // the sky goes quiet around the headline: none behind the words, then a slow ramp back to normal
@@ -213,6 +220,47 @@ export class Scene implements SceneView {
         }
         if (u >= p) continue;
         by[kind].push(star);
+      }
+    }
+    this.baseStars = by;
+    this.composeStars();
+  }
+
+  /**
+   * The sky as drawn: the scattered stars, plus the stars that make up each constellation.
+   * A constellation's stars are ordinary stars of the starfield (same glyphs, size and twinkle); where a scattered star
+   * already sits close to a vertex it is absorbed, so the sky doesn't get denser around the figure. The object itself
+   * only draws the lines between them.
+   */
+  private composeStars() {
+    const by = this.baseStars.map((list) => list.slice());
+    for (const it of this.items) {
+      const anchors = it.def.anchors?.(it, this);
+      if (!anchors) continue;
+      for (const a of anchors) {
+        let best: { kind: number; idx: number } | null = null;
+        let bd = a.snap * a.snap;
+        for (let kind = 0; kind < 3; kind++) {
+          const list = by[kind];
+          for (let n = 0; n < list.length; n++) {
+            if (list[n].anchor) continue;
+            const d = (list[n].x - a.x) ** 2 + (list[n].y - a.y) ** 2;
+            if (d < bd) {
+              bd = d;
+              best = { kind, idx: n };
+            }
+          }
+        }
+        if (best) by[best.kind].splice(best.idx, 1);
+        by[a.big ? 2 : 1].push({
+          x: a.x,
+          y: a.y,
+          ph: hash(a.x, a.y) * Math.PI * 2,
+          sp: 0.8 + hash(a.y, a.x) * 1.4,
+          b: a.big ? 0.95 : 0.78,
+          tint: 1,
+          anchor: true,
+        });
       }
     }
     this.starsByKind = by;
@@ -388,6 +436,12 @@ export class Scene implements SceneView {
         out.tint = C.ice;
         out.ch = null;
         for (const it of fx) it.def.starFx!(it, this, s, out, t, it.k);
+        if (s.anchor) {
+          // a constellation's stars stay where the lines expect them (they can still brighten)
+          out.x = s.x;
+          out.y = s.y;
+          out.ch = null;
+        }
         if (out.y < top || out.y > bottom || this.g.solidAt(out.x, out.y)) continue;
         const I = s.b * (1 - amp + amp * Math.sin(t * s.sp + s.ph)) + out.boost * 0.9;
         let col = s.tint < tint * 0.5 ? C.ember : s.tint < tint ? C.sky : mix(C.dust, C.white, s.b);

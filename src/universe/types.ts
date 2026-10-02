@@ -85,6 +85,8 @@ export type Def = {
   /** How much this kind glows once awake, 0..1 (scaled by the scene's bloom setting). */
   bloom?: number;
   sizeOf(it: Item, sc: SceneView): number;
+  /** Stars that belong to this object and live in the starfield (a constellation's vertices). `snap` is how far a scattered star may be absorbed. */
+  anchors?(it: Item, sc: SceneView): { x: number; y: number; big: boolean; snap: number }[];
   spawn(rng: Rng, i: number, sc: SceneView): any;
   init(it: Item, sc: SceneView): any;
   update(it: Item, sc: SceneView, dt: number, t: number, k: number): void;

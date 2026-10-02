@@ -51,9 +51,9 @@ export function configFromSeed(seed: number): SceneConfig {
   return {
     glyph: pick(rng, [3.5, 4, 4.5, 5]),
     speed: 1,
-    bloom: +lerp(0.05, 0.3, rng()).toFixed(2),
+    bloom: +lerp(0.03, 0.2, rng()).toFixed(2),
     stars: {
-      hero: +lerp(8, 34, rng()).toFixed(1),
+      hero: +lerp(8, 40, rng()).toFixed(1),
       edge: 0,
       edgeWidth: base.stars.edgeWidth,
       size: +lerp(7, 12, rng()).toFixed(1),

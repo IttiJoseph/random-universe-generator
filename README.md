@@ -28,7 +28,7 @@ No framework: TypeScript, Vite, a canvas and some CSS.
 | **◀ / ▶** | Steps to the previous or next seed. |
 | **Seed display** | Click it and type a seed to jump straight to that universe. |
 | **Autopilot** (or <kbd>A</kbd>) | Flies to a new universe every few seconds. |
-| **Starfield** | Star density, size, twinkle, colour tint, bloom, glyph size and overall speed. |
+| **Starfield** | Star density (up to 50 per 100k px²), star size (up to 20px), twinkle, colour tint, bloom (0–20%), glyph size and overall speed. |
 | **Objects** | How many of each of the seven kinds. Click a name to tune that kind's size and speed in the Tuning panel. |
 | **Snapshot** | Saves the current view as a PNG. |
 | **Copy link** | Copies a link to this exact universe. |
@@ -47,7 +47,7 @@ Every object in a universe is its own variation of its kind.
 - **Ringed planet**: banded gas giants with storms and one to three rings, seen from different angles.
 - **Pulsar**: a six-ray star that beats and sends a ring across the sky, lighting the stars it passes.
 - **Black hole**: a spinning accretion disk, with the nearby stars pulled in close around it.
-- **Constellation**: Orion, Scorpius, the Big Dipper, Cassiopeia, Leo and Cygnus, drawn from real star positions.
+- **Constellation**: Orion, Scorpius, the Big Dipper, Cassiopeia, Leo and Cygnus, placed from real star positions. Their stars are ordinary stars of the starfield (a nearby scattered star is absorbed, so the sky doesn't thicken around them) and the constellation just joins them with lines.
 
 ## How it works
 

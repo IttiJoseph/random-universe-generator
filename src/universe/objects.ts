@@ -924,6 +924,14 @@ export function buildObjects(C: Palette): Def[] {
     };
   });
   const CON_PALS = [{ line: C.amber, star: C.ice }, { line: C.ice, star: C.white }, { line: C.cream, star: C.amber }, { line: C.sky, star: C.ice }];
+  /** The page positions of a constellation's stars. */
+  const constellationPoints = (it: Item, sc: SceneView): [number, number][] => {
+    const p = it.p;
+    const R = (sz("constellation", it, sc) / 2) * 0.95;
+    const c = Math.cos(p.rot);
+    const sn = Math.sin(p.rot);
+    return p.shape.pts.map(([u, v]: [number, number]) => [it.x + (u * c - v * sn) * R, it.y + (u * sn + v * c) * R]);
+  };
   const constellation: Def = {
     id: "constellation",
     bloom: 0.9,
@@ -938,46 +946,29 @@ export function buildObjects(C: Palette): Def[] {
     }),
     init: () => ({}),
     update: noop,
-    draw(it, sc, g, t, k) {
-      const p = it.p;
+    // the stars themselves belong to the starfield (see Scene.composeStars)
+    anchors(it, sc) {
       const R = (sz("constellation", it, sc) / 2) * 0.95;
-      const c = Math.cos(p.rot);
-      const sn = Math.sin(p.rot);
-      const P: [number, number][] = p.shape.pts.map(([u, v]: [number, number]) => [it.x + (u * c - v * sn) * R, it.y + (u * sn + v * c) * R]);
+      const big = it.p.shape.big as number[];
+      return constellationPoints(it, sc).map(([x, y], i) => ({ x, y, big: big.includes(i), snap: R * 0.28 }));
+    },
+    // ...so the object only draws the lines joining them, stopping just short of each star
+    draw(it, sc, g, t, k) {
+      if (k < 0.02) return;
+      const p = it.p;
+      const P = constellationPoints(it, sc);
       const lineCol = mix(C.dust, p.pal.line, k);
-      const starCol = mix(mix(C.dust, C.white, 0.55), p.pal.star, k);
+      const trim = Math.max(g.cw, sc.cfg.stars.size * 0.65);
       (p.shape.edges as [number, number][]).forEach(([a, b], e) => {
         const A = P[a];
         const B = P[b];
         const dx = B[0] - A[0];
         const dy = B[1] - A[1];
         const len = Math.hypot(dx, dy);
-        const step = g.cw * 1.7;
-        for (let m = 0; m * step <= len; m++) {
-          const u = (m * step) / len;
-          g.plot(A[0] + dx * u, A[1] + dy * u, 0.4, C.dust, ".");
-        }
-        if (k > 0.02) {
-          const n = Math.ceil(len / 1.1);
-          const ch = lineCh(dx, dy);
-          const I = (0.72 + 0.1 * Math.sin(t * 1.3 + e * 1.9 + p.ph)) * k;
-          for (let m = 0; m <= n; m++) {
-            const u = m / n;
-            g.plot(A[0] + dx * u, A[1] + dy * u, I, lineCol, ch);
-          }
-        }
-      });
-      P.forEach((q, i) => {
-        const tw = 0.8 + 0.2 * Math.sin(t * 2.4 + i * 1.9 + p.ph);
-        const big = (p.shape.big as number[]).includes(i);
-        g.plot(q[0], q[1], lerp(0.9, tw, k), starCol, big ? "O" : i % 2 ? "+" : "*");
-        if (k > 0.5 && Math.sin(t * 0.9 + i * 2.7 + p.ph) > 0.9) {
-          // an occasional glint
-          g.plot(q[0] - g.cw, q[1], 0.7 * k, p.pal.star, "-");
-          g.plot(q[0] + g.cw, q[1], 0.7 * k, p.pal.star, "-");
-          g.plot(q[0], q[1] - g.chh, 0.7 * k, p.pal.star, "|");
-          g.plot(q[0], q[1] + g.chh, 0.7 * k, p.pal.star, "|");
-        }
+        if (len <= trim * 2) return;
+        const ch = lineCh(dx, dy);
+        const I = (0.72 + 0.1 * Math.sin(t * 1.3 + e * 1.9 + p.ph)) * k;
+        for (let d = trim; d <= len - trim; d += 1.1) g.plot(A[0] + (dx * d) / len, A[1] + (dy * d) / len, I, lineCol, ch);
       });
     },
   };

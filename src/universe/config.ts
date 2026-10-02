@@ -52,7 +52,7 @@ export const OBJECT_META: Record<ObjectId, { name: string; note: string; swatche
   },
   constellation: {
     name: "Constellation",
-    note: "Real constellations: Orion, Scorpius, Big Dipper, Cassiopeia, Leo, Cygnus.",
+    note: "Real constellations (Orion, Scorpius, Big Dipper, Cassiopeia, Leo, Cygnus), made by joining actual stars in the starfield.",
     swatches: ["amber", "cream", "ice", "sky"],
   },
 };
