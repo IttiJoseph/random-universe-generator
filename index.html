@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Random Universe Generator</title>
+    <meta
+      name="description"
+      content="Generate a random ASCII universe: galaxies, comets, pulsars, black holes, ringed planets and real constellations. Click anything to wake it up."
+    />
+    <meta name="theme-color" content="#161325" />
+    <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
+  </head>
+  <body>
+    <main class="console">
+      <header class="top-plate">
+        <span class="vent" aria-hidden="true"></span>
+        <h1>Random Universe Generator</h1>
+        <span class="vent" aria-hidden="true"></span>
+      </header>
+
+      <section class="screen-wrap" aria-label="Universe viewport">
+        <div class="screen">
+          <canvas
+            id="universe"
+            role="img"
+            aria-label="A randomly generated ASCII universe. Click or tap an object to wake it up."
+          ></canvas>
+          <div class="screen-grid" aria-hidden="true"></div>
+          <span class="corner tl" aria-hidden="true"></span>
+          <span class="corner tr" aria-hidden="true"></span>
+          <span class="corner bl" aria-hidden="true"></span>
+          <span class="corner br" aria-hidden="true"></span>
+          <p class="tag tag-tl">Universe</p>
+          <p class="tag tag-tr">Seed <span id="hud-seed">000000</span></p>
+          <p class="tag tag-bl"><span id="hud-objects">0</span> objects · <span id="hud-awake">0</span> awake</p>
+          <p class="tag tag-br red" id="hud-hint">Click an object to wake it</p>
+        </div>
+      </section>
+
+      <section class="deck" id="deck" aria-label="Controls"></section>
+
+      <footer class="foot">
+        <p>
+          <kbd>R</kbd> randomize · <kbd>A</kbd> autopilot · <kbd>W</kbd> wake all · same seed, same universe
+        </p>
+      </footer>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
