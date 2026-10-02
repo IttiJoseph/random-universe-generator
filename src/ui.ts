@@ -76,7 +76,11 @@ export function mountUi(app: App, deck: HTMLElement) {
   const autopilot = h("button", { type: "button", class: "btn toggle", "aria-pressed": false }, h("i", { class: "led", "aria-hidden": true }), "Autopilot");
   autopilot.addEventListener("click", () => app.setAutopilot(!app.state.autopilot));
 
-  const wake = track(slider("Awake at start", { min: 0, max: 1, step: 0.05, get: () => app.state.wakeShare, set: (v) => app.setWakeShare(v), fmt: pct }));
+  const copy = button("Copy link", "", async () => {
+    const ok = await app.copyLink();
+    copy.textContent = ok ? "Copied" : "Copy failed";
+    window.setTimeout(() => (copy.textContent = "Copy link"), 1500);
+  });
 
   const generate = panel(
     "gen",
@@ -84,7 +88,7 @@ export function mountUi(app: App, deck: HTMLElement) {
     h("div", { class: "seed" }, h("span", { class: "cap" }, "Seed"), seedInput),
     h("div", { class: "seed-keys" }, button("◀", "step", () => app.step(-1)), button("Randomize", "primary", () => app.randomize()), button("▶", "step", () => app.step(1))),
     autopilot,
-    wake.el,
+    h("div", { class: "btn-pair" }, button("Snapshot", "", () => app.snapshot()), copy),
   );
 
   /* ── Starfield ── */
@@ -105,15 +109,12 @@ export function mountUi(app: App, deck: HTMLElement) {
   /* ── Objects ── */
   let selected: ObjectId = "galaxy";
   const leds = new Map<ObjectId, HTMLElement>();
-  const tallies = new Map<ObjectId, HTMLElement>();
   const nameButtons = new Map<ObjectId, HTMLButtonElement>();
 
   const rows = OBJECT_IDS.map((id) => {
     const led = h("i", { class: "led", "aria-hidden": true });
     const name = h("button", { type: "button", class: "obj-name", "aria-pressed": id === selected }, OBJECT_META[id].name);
-    const tally = h("span", { class: "tally", title: "awake / total" }, "0/0");
     leds.set(id, led);
-    tallies.set(id, tally);
     nameButtons.set(id, name);
     name.addEventListener("click", () => {
       selected = id;
@@ -129,13 +130,19 @@ export function mountUi(app: App, deck: HTMLElement) {
         set: (v) => patch((c) => ({ ...c, objects: { ...c.objects, [id]: { ...c.objects[id], count: v } } })),
       }),
     );
-    return h("div", { class: "obj-row" }, led, name, tally, count.el);
+    return h("div", { class: "obj-row" }, led, name, count.el);
   });
-  const objects = panel("objs", "Objects", ...rows, h("p", { class: "note" }, "Green light: at least one of that kind is awake."));
+  const objects = panel("objs", "Objects", ...rows);
 
-  /* ── Tuning (size and speed of the selected kind) ── */
+  /* ── Tuning (size and speed of the selected kind) and readouts ── */
   const tuneTitle = h("span", {}, "Tuning");
   const tuneNote = h("p", { class: "note" });
+  const readout = {
+    stars: h("output", { class: "val" }, "0"),
+    objects: h("output", { class: "val" }, "0"),
+    fps: h("output", { class: "val" }, "60"),
+  };
+  const line = (name: string, out: HTMLElement) => h("li", {}, h("span", {}, name), out);
   const tune = panel(
     "tune",
     tuneTitle,
@@ -160,63 +167,35 @@ export function mountUi(app: App, deck: HTMLElement) {
       }),
     ).el,
     tuneNote,
+    h("ul", { class: "readouts" }, line("Stars", readout.stars), line("Objects", readout.objects), line("FPS", readout.fps)),
   );
 
-  /* ── Actions and readouts ── */
-  const copy = button("Copy link", "", async () => {
-    const ok = await app.copyLink();
-    copy.textContent = ok ? "Copied" : "Copy failed";
-    window.setTimeout(() => (copy.textContent = "Copy link"), 1500);
-  });
-  const readout = {
-    stars: h("output", { class: "val" }, "0"),
-    objects: h("output", { class: "val" }, "0"),
-    awake: h("output", { class: "val" }, "0"),
-    fps: h("output", { class: "val" }, "60"),
-  };
-  const line = (name: string, out: HTMLElement) => h("li", {}, h("span", {}, name), out);
-  const actions = panel(
-    "act",
-    "Controls",
-    h("div", { class: "btn-grid" }, button("Wake all", "go", () => app.wakeAll()), button("Snapshot", "", () => app.snapshot()), copy, button("Reset", "warn", () => app.sleepAll())),
-    h("ul", { class: "readouts" }, line("Stars", readout.stars), line("Objects", readout.objects), line("Awake", readout.awake), line("FPS", readout.fps)),
-  );
-
-  deck.replaceChildren(generate, stars, objects, tune, actions);
+  deck.replaceChildren(generate, stars, objects, tune);
 
   /* ── Keeping everything in step ── */
   const hud = {
     seed: document.getElementById("hud-seed")!,
     objects: document.getElementById("hud-objects")!,
-    awake: document.getElementById("hud-awake")!,
-    hint: document.getElementById("hud-hint")!,
+    auto: document.getElementById("hud-auto")!,
   };
-  hud.hint.textContent = matchMedia("(pointer: coarse)").matches ? "Tap an object to wake it" : "Click an object to wake it";
 
   const syncLive = () => {
-    const items = app.scene.items;
-    const awake = items.filter((it) => it.awake).length;
-    hud.objects.textContent = String(items.length);
-    hud.awake.textContent = String(awake);
-    readout.objects.textContent = String(items.length);
-    readout.awake.textContent = String(awake);
+    const n = app.scene.items.length;
+    hud.objects.textContent = String(n);
+    readout.objects.textContent = String(n);
     readout.stars.textContent = String(app.scene.starCount);
     readout.fps.textContent = String(Math.round(app.fps));
-    for (const id of OBJECT_IDS) {
-      const of = items.filter((it) => it.def.id === id);
-      const a = of.filter((it) => it.awake).length;
-      leds.get(id)!.classList.toggle("on", a > 0);
-      tallies.get(id)!.textContent = `${a}/${of.length}`;
-    }
   };
 
   function syncAll() {
     const s = app.state;
     seedInput.value = pad6(s.seed);
     hud.seed.textContent = pad6(s.seed);
+    hud.auto.hidden = !s.autopilot;
     autopilot.setAttribute("aria-pressed", String(s.autopilot));
     autopilot.querySelector(".led")!.classList.toggle("on", s.autopilot);
     nameButtons.forEach((b, id) => b.setAttribute("aria-pressed", String(id === selected)));
+    leds.forEach((led, id) => led.classList.toggle("on", s.config.objects[id].count > 0)); // lit while that kind is in the sky
     tuneTitle.textContent = `Tuning · ${OBJECT_META[selected].name}`;
     tuneNote.textContent = OBJECT_META[selected].note;
     controls.forEach((c) => c.sync());

@@ -1,5 +1,5 @@
 import { DEFAULT_CONFIG } from "./universe/config";
-import { mulberry32, readPalette } from "./universe/engine";
+import { readPalette } from "./universe/engine";
 import { buildObjects } from "./universe/objects";
 import { Scene } from "./universe/scene";
 import { OBJECT_IDS } from "./universe/types";
@@ -9,14 +9,13 @@ import { clampSeed, configFromSeed, randomSeed } from "./random";
 export type AppState = {
   seed: number;
   config: SceneConfig;
-  /** Share of objects that start awake in a freshly generated universe, 0..1. */
-  wakeShare: number;
   autopilot: boolean;
   /** True once the settings have been changed by hand, so a shared link has to carry them. */
   dirty: boolean;
 };
 
-const DEFAULT_WAKE = 0.35;
+/** How long autopilot stays on one universe. */
+const AUTOPILOT_SECONDS = 9;
 
 /** Owns the scene: the canvas, the animation loop, the seed, and what the controls change. */
 export class App {
@@ -26,7 +25,6 @@ export class App {
 
   private listeners = new Set<() => void>();
   private autoTimer = 0;
-  private autoIdle = 0;
 
   constructor(readonly canvas: HTMLCanvasElement) {
     const palette = readPalette(document.documentElement);
@@ -35,11 +33,11 @@ export class App {
     this.state = {
       seed,
       config: shared.config ?? configFromSeed(seed),
-      wakeShare: shared.wake ?? DEFAULT_WAKE,
       autopilot: false,
       dirty: !!shared.config,
     };
     this.scene = new Scene(buildObjects(palette), palette, this.state.config);
+    this.scene.autoWake = true; // every object is awake from the start
     this.scene.fontFamily = '"Space Mono", ui-monospace, Menlo, Consolas, monospace';
     document.fonts?.load('12px "Space Mono"').catch(() => {});
 
@@ -75,21 +73,6 @@ export class App {
     this.generate(this.state.seed, this.state.dirty ? this.state.config : undefined);
     new ResizeObserver(resize).observe(this.canvas);
 
-    // Hover and click are matched to objects in canvas coordinates.
-    this.canvas.addEventListener("pointermove", (e) => {
-      if (e.pointerType === "touch") return;
-      const r = this.canvas.getBoundingClientRect();
-      this.canvas.style.cursor = this.scene.hover(e.clientX - r.left, e.clientY - r.top) ? "pointer" : "";
-    });
-    this.canvas.addEventListener("pointerleave", () => {
-      this.scene.unhover();
-      this.canvas.style.cursor = "";
-    });
-    this.canvas.addEventListener("click", (e) => {
-      const r = this.canvas.getBoundingClientRect();
-      if (this.scene.click(e.clientX - r.left, e.clientY - r.top)) this.emit();
-    });
-
     let last = performance.now();
     const tick = (now: number) => {
       const dt = Math.min(0.05, (now - last) / 1000);
@@ -111,13 +94,6 @@ export class App {
     s.dirty = !!config;
     this.scene.setConfig(s.config);
     this.scene.setSeed(s.seed);
-
-    // wake a seeded share of the objects, so the first look already has some colour in it
-    const rng = mulberry32(s.seed * 31 + 7);
-    const items = [...this.scene.items].sort(() => rng() - 0.5);
-    items.slice(0, Math.round(items.length * s.wakeShare)).forEach((it) => (it.awake = true));
-
-    this.autoIdle = 0;
     this.writeHash();
     this.emit();
   }
@@ -136,38 +112,12 @@ export class App {
     this.writeHash();
     this.emit();
   }
-  setWakeShare(v: number) {
-    this.state.wakeShare = v;
-    this.writeHash();
-    this.emit();
-  }
 
-  wakeAll() {
-    this.scene.wakeAll();
-    this.emit();
-  }
-  sleepAll() {
-    this.scene.resetAll();
-    this.emit();
-  }
-
-  /** Autopilot wakes the sky one object at a time, rests a moment, then flies to a new universe. */
+  /** Autopilot flies to a new universe every few seconds. */
   setAutopilot(on: boolean) {
     this.state.autopilot = on;
     window.clearInterval(this.autoTimer);
-    this.autoIdle = 0;
-    if (on) {
-      this.autoTimer = window.setInterval(() => {
-        const asleep = this.scene.items.filter((it) => !it.awake);
-        if (asleep.length) {
-          asleep[Math.floor(Math.random() * asleep.length)].awake = true;
-          this.autoIdle = 0;
-        } else if (++this.autoIdle >= 4) {
-          this.randomize();
-        }
-        this.emit();
-      }, 2200);
-    }
+    if (on) this.autoTimer = window.setInterval(() => this.randomize(), AUTOPILOT_SECONDS * 1000);
     this.emit();
   }
 
@@ -209,24 +159,20 @@ export class App {
     const p = new URLSearchParams();
     p.set("seed", String(s.seed));
     if (s.dirty) p.set("c", btoa(JSON.stringify(s.config)).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""));
-    if (s.wakeShare !== DEFAULT_WAKE) p.set("w", String(Math.round(s.wakeShare * 100)));
     history.replaceState(null, "", `#${p.toString()}`);
   }
 }
 
 /* Reads a shared link. Anything missing or malformed is simply ignored. */
-function readHash(): { seed?: number; config?: SceneConfig; wake?: number } {
+function readHash(): { seed?: number; config?: SceneConfig } {
   const p = new URLSearchParams(location.hash.slice(1));
-  const out: { seed?: number; config?: SceneConfig; wake?: number } = {};
+  const out: { seed?: number; config?: SceneConfig } = {};
   const seed = Number(p.get("seed"));
   if (p.has("seed") && Number.isFinite(seed)) out.seed = clampSeed(seed);
-  const w = Number(p.get("w"));
-  if (p.has("w") && Number.isFinite(w)) out.wake = Math.min(1, Math.max(0, w / 100));
   const c = p.get("c");
   if (c) {
     try {
-      const raw = JSON.parse(atob(c.replace(/-/g, "+").replace(/_/g, "/")));
-      out.config = mergeConfig(raw);
+      out.config = mergeConfig(JSON.parse(atob(c.replace(/-/g, "+").replace(/_/g, "/"))));
     } catch {
       /* a broken link just falls back to the seed */
     }

@@ -39,6 +39,8 @@ export class Scene implements SceneView {
   dpr = 1;
   scrollY = 0;
   reduced = false;
+  /** Objects are created awake (they still ease into colour over about a second). */
+  autoWake = false;
   fontFamily = "monospace";
   readonly g = new Grid();
   items: Item[] = [];
@@ -155,7 +157,7 @@ export class Scene implements SceneView {
   private makeItem(def: Def, i: number): Item {
     const rng = mulberry32(this.seed * 131 + OBJECT_IDS.indexOf(def.id) * 7919 + i * 104729 + 11);
     const slot = this.slots[def.id][i];
-    const it: Item = { def, i, p: null, s: null, x: slot.x, y: slot.y, a: 0, k: 0, awake: false, ck: 0, hov: 0, hovering: false };
+    const it: Item = { def, i, p: null, s: null, x: slot.x, y: slot.y, a: 0, k: 0, awake: this.autoWake, ck: 0, hov: 0, hovering: false };
     it.p = def.spawn(rng, i, this);
     it.s = def.init(it, this);
     return it;
