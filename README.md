@@ -57,9 +57,6 @@ Every object in a universe is its own variation of its kind.
 - The colours are CSS custom properties (`--color-cosmos-*` in `src/style.css`); the engine reads them at start-up, so re-theming the universe is a CSS edit.
 - It respects `prefers-reduced-motion`: with it on, everything holds still.
 
-## Credits
-
-The universe engine was first built for the hero of a portfolio site's home page and pulled out into its own project here. The control panel takes its look from retro pixel-art spaceship interfaces. Fonts: [Silkscreen](https://fonts.google.com/specimen/Silkscreen), [VT323](https://fonts.google.com/specimen/VT323) and [Space Mono](https://fonts.google.com/specimen/Space+Mono), served through [Fontsource](https://fontsource.org).
 
 ## License
 
