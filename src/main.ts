@@ -19,5 +19,6 @@ window.addEventListener("keydown", (e) => {
   if (e.target instanceof Element && e.target.closest("input, textarea, select")) return;
   const key = e.key.toLowerCase();
   if (key === "r") app.randomize();
+  else if (key === "s") app.shuffle();
   else if (key === "a") app.setAutopilot(!app.state.autopilot);
 });

@@ -27,6 +27,7 @@ No framework: TypeScript, Vite, a canvas and some CSS.
 | **Randomize** (or <kbd>R</kbd>) | Generates a new universe from a random six-digit seed. |
 | **◀ / ▶** | Steps to the previous or next seed. |
 | **Seed display** | Click it and type a seed to jump straight to that universe. |
+| **Shuffle** (or <kbd>S</kbd>) | Keeps every setting exactly as it is and re-rolls only the seed: new positions and variations, same knobs. |
 | **Autopilot** (or <kbd>A</kbd>) | Flies to a new universe every few seconds. |
 | **Starfield** | Star density (up to 50 per 100k px²), star size (up to 20px), twinkle, colour tint, bloom (0–20%), glyph size and overall speed. |
 | **Objects** | How many of each of the seven kinds. Click a name to tune that kind's size and speed in the Tuning panel. |

@@ -76,6 +76,9 @@ export function mountUi(app: App, deck: HTMLElement) {
   const autopilot = h("button", { type: "button", class: "btn toggle", "aria-pressed": false }, h("i", { class: "led", "aria-hidden": true }), "Autopilot");
   autopilot.addEventListener("click", () => app.setAutopilot(!app.state.autopilot));
 
+  const shuffle = button("Shuffle", "", () => app.shuffle());
+  shuffle.title = "Keep these settings, re-roll the seed";
+
   const copy = button("Copy link", "", async () => {
     const ok = await app.copyLink();
     copy.textContent = ok ? "Copied" : "Copy failed";
@@ -87,7 +90,7 @@ export function mountUi(app: App, deck: HTMLElement) {
     "Generate",
     h("div", { class: "seed" }, h("span", { class: "cap" }, "Seed"), seedInput),
     h("div", { class: "seed-keys" }, button("◀", "step", () => app.step(-1)), button("Randomize", "primary", () => app.randomize()), button("▶", "step", () => app.step(1))),
-    autopilot,
+    h("div", { class: "btn-pair" }, autopilot, shuffle),
     h("div", { class: "btn-pair" }, button("Snapshot", "", () => app.snapshot()), copy),
   );
 

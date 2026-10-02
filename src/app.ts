@@ -100,6 +100,10 @@ export class App {
   randomize() {
     this.generate(randomSeed());
   }
+  /** Keeps every setting exactly as it is and re-rolls only the seed: new positions and variations, same knobs. */
+  shuffle() {
+    this.generate(randomSeed(), this.state.config);
+  }
   step(delta: number) {
     this.generate(this.state.seed + delta);
   }
