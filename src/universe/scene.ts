@@ -56,6 +56,11 @@ export class Scene implements SceneView {
   private baseStars: Star[][] = [[], [], []];
   private ready = false;
   private glowCells: number[] = [];
+  private buckets = new Map<number, number[]>();
+  private usedKeys: number[] = [];
+  private styles = new Map<number, string>();
+  private bloomSmall: HTMLCanvasElement | null = null;
+  private bloomImg: ImageData | null = null;
   private bloomCanvas: HTMLCanvasElement | null = null;
   private bloomCtx: CanvasRenderingContext2D | null = null;
 
@@ -363,17 +368,41 @@ export class Scene implements SceneView {
     const shift = this.scrollY - snapY;
     const glow = this.glowCells;
     glow.length = 0;
-    for (let j = 0; j < g.rows; j++) {
-      for (let i = 0; i < g.cols; i++) {
-        const k = j * g.cols + i;
-        const I = g.I[k];
-        if (I < 0.05) continue;
-        const c = g.C[k];
-        if (c === " ") continue;
-        ctx.fillStyle = `rgba(${g.R[k]},${g.G[k]},${g.B[k]},${Math.min(1, 0.3 + I * 0.9).toFixed(2)})`;
-        ctx.fillText(c, (i + 0.5) * g.cw, (j + 0.5) * g.chh - shift);
-        if (g.GL[k] > 0.02) glow.push(k);
+    // Cells are bucketed by quantised colour + alpha, so fillStyle is set once per bucket instead of once per glyph.
+    const buckets = this.buckets;
+    const used = this.usedKeys;
+    used.length = 0;
+    const { cols, rows, I: gI, C: gC, R: gR, G: gG, B: gB, GL } = g;
+    for (let j = 0; j < rows; j++) {
+      for (let i = 0; i < cols; i++) {
+        const k = j * cols + i;
+        const I = gI[k];
+        if (I < 0.05 || gC[k] === " ") continue;
+        const key = ((gR[k] >> 3) << 14) | ((gG[k] >> 3) << 9) | ((gB[k] >> 3) << 4) | ((Math.min(1, 0.3 + I * 0.9) * 15 + 0.5) | 0);
+        let list = buckets.get(key);
+        if (!list) buckets.set(key, (list = []));
+        if (list.length === 0) used.push(key);
+        list.push(k);
+        if (GL[k] > 0.02) glow.push(k);
       }
+    }
+    const cw = g.cw;
+    const chh = g.chh;
+    for (const key of used) {
+      let style = this.styles.get(key);
+      if (!style) {
+        const q = (v: number) => (v << 3) | (v >> 2);
+        style = `rgba(${q((key >> 14) & 31)},${q((key >> 9) & 31)},${q((key >> 4) & 31)},${((key & 15) / 15).toFixed(2)})`;
+        this.styles.set(key, style);
+      }
+      ctx.fillStyle = style;
+      const list = buckets.get(key)!;
+      for (let n = 0; n < list.length; n++) {
+        const k = list[n];
+        const j = (k / cols) | 0;
+        ctx.fillText(gC[k], (k - j * cols + 0.5) * cw, (j + 0.5) * chh - shift);
+      }
+      list.length = 0;
     }
     this.drawBloom(ctx, shift);
     if (clipped) ctx.restore();
@@ -396,24 +425,53 @@ export class Scene implements SceneView {
     if (cv.width !== w || cv.height !== h) {
       cv.width = w;
       cv.height = h;
-    } else {
-      b.clearRect(0, 0, w, h);
+      this.bloomImg = null;
     }
+    // Splat each glowing cell into a small RGB buffer (additive, clamped) instead of one canvas fillRect per cell.
+    const img = (this.bloomImg ??= b.createImageData(w, h));
+    const px = img.data;
+    px.fill(0);
     const g = this.g;
     const half = (Math.max(g.cw, g.chh) * 1.6) / S;
-    b.globalCompositeOperation = "lighter";
     for (const k of cells) {
       const j = Math.floor(k / g.cols);
       const i = k - j * g.cols;
       const a = Math.min(1, g.I[k] * g.GL[k] * 0.5);
-      b.fillStyle = `rgba(${g.R[k]},${g.G[k]},${g.B[k]},${a.toFixed(3)})`;
-      b.fillRect(((i + 0.5) * g.cw) / S - half, ((j + 0.5) * g.chh - shift) / S - half, half * 2, half * 2);
+      const cx = ((i + 0.5) * g.cw) / S;
+      const cy = ((j + 0.5) * g.chh - shift) / S;
+      const x0 = Math.max(0, Math.round(cx - half));
+      const x1 = Math.min(w, Math.round(cx + half));
+      const y0 = Math.max(0, Math.round(cy - half));
+      const y1 = Math.min(h, Math.round(cy + half));
+      const r = g.R[k] * a;
+      const gr = g.G[k] * a;
+      const bl = g.B[k] * a;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0, p = (y * w + x0) * 4; x < x1; x++, p += 4) {
+          px[p] += r;
+          px[p + 1] += gr;
+          px[p + 2] += bl;
+        }
+      }
     }
+    for (let p = 3; p < px.length; p += 4) px[p] = 255;
+    b.putImageData(img, 0, 0);
+    // Soften at low resolution (cheap) rather than blurring the full-size canvas every frame.
+    const sm = (this.bloomSmall ??= document.createElement("canvas"));
+    if (sm.width !== w || sm.height !== h) {
+      sm.width = w;
+      sm.height = h;
+    }
+    const s = sm.getContext("2d");
+    if (!s) return;
+    s.clearRect(0, 0, w, h);
+    s.filter = "blur(1px)";
+    s.drawImage(cv, 0, 0);
     ctx.save();
     ctx.globalCompositeOperation = "lighter";
     ctx.globalAlpha = clamp(this.cfg.bloom);
-    ctx.filter = `blur(${3 * this.dpr}px)`;
-    ctx.drawImage(cv, 0, 0, this.vw, this.vh);
+    ctx.imageSmoothingQuality = "low";
+    ctx.drawImage(sm, 0, 0, this.vw, this.vh);
     ctx.restore();
   }
 

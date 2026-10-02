@@ -25,6 +25,7 @@ export class App {
 
   private listeners = new Set<() => void>();
   private autoTimer = 0;
+  private hashTimer = 0;
 
   constructor(readonly canvas: HTMLCanvasElement) {
     const palette = readPalette(document.documentElement);
@@ -59,8 +60,10 @@ export class App {
     const ctx = this.canvas.getContext("2d");
     if (!ctx) return;
 
+    let resizeFrame = 0;
     const resize = () => {
-      const r = this.canvas.getBoundingClientRect();
+      resizeFrame = 0;
+      const r =this.canvas.getBoundingClientRect();
       const w = Math.max(1, Math.round(r.width));
       const h = Math.max(1, Math.round(r.height));
       const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -71,7 +74,9 @@ export class App {
     };
     resize();
     this.generate(this.state.seed, this.state.dirty ? this.state.config : undefined);
-    new ResizeObserver(resize).observe(this.canvas);
+    new ResizeObserver(() => {
+      if (!resizeFrame) resizeFrame = requestAnimationFrame(resize);
+    }).observe(this.canvas);
 
     let last = performance.now();
     const tick = (now: number) => {
