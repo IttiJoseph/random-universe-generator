@@ -9,13 +9,9 @@ import { clampSeed, configFromSeed, randomSeed } from "./random";
 export type AppState = {
   seed: number;
   config: SceneConfig;
-  autopilot: boolean;
   /** True once the settings have been changed by hand, so a shared link has to carry them. */
   dirty: boolean;
 };
-
-/** How long autopilot stays on one universe. */
-const AUTOPILOT_SECONDS = 9;
 
 /** Owns the scene: the canvas, the animation loop, the seed, and what the controls change. */
 export class App {
@@ -24,7 +20,6 @@ export class App {
   fps = 60;
 
   private listeners = new Set<() => void>();
-  private autoTimer = 0;
   private hashTimer = 0;
 
   constructor(readonly canvas: HTMLCanvasElement) {
@@ -34,7 +29,6 @@ export class App {
     this.state = {
       seed,
       config: shared.config ?? configFromSeed(seed),
-      autopilot: false,
       dirty: !!shared.config,
     };
     this.scene = new Scene(buildObjects(palette), palette, this.state.config);
@@ -122,14 +116,6 @@ export class App {
     this.emit();
   }
 
-  /** Autopilot flies to a new universe every few seconds. */
-  setAutopilot(on: boolean) {
-    this.state.autopilot = on;
-    window.clearInterval(this.autoTimer);
-    if (on) this.autoTimer = window.setInterval(() => this.randomize(), AUTOPILOT_SECONDS * 1000);
-    this.emit();
-  }
-
   /** Saves the current view as a PNG, on a dark background. */
   snapshot() {
     const out = document.createElement("canvas");
@@ -148,16 +134,6 @@ export class App {
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 1000);
     });
-  }
-
-  async copyLink() {
-    this.writeHash();
-    try {
-      await navigator.clipboard.writeText(location.href);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   /* ───────── the link ───────── */
@@ -189,6 +165,8 @@ function readHash(): { seed?: number; config?: SceneConfig } {
   return out;
 }
 
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
 /** Lays a possibly partial config over the defaults, keeping only numbers. */
 function mergeConfig(raw: unknown): SceneConfig {
   const num = (v: unknown, fallback: number, max = Infinity) => (typeof v === "number" && Number.isFinite(v) ? Math.min(v, max) : fallback);
@@ -201,14 +179,14 @@ function mergeConfig(raw: unknown): SceneConfig {
   }
   const st = (r.stars ?? {}) as Record<string, unknown>;
   return {
-    glyph: num(r.glyph, d.glyph),
+    glyph: clamp(num(r.glyph, d.glyph), 2, 6),
     speed: num(r.speed, d.speed),
     bloom: num(r.bloom, d.bloom, 0.2),
     stars: {
       hero: num(st.hero, d.stars.hero, 50),
       edge: num(st.edge, d.stars.edge),
       edgeWidth: num(st.edgeWidth, d.stars.edgeWidth),
-      size: num(st.size, d.stars.size, 20),
+      size: clamp(num(st.size, d.stars.size), 10, 30),
       twinkle: num(st.twinkle, d.stars.twinkle),
       tint: num(st.tint, d.stars.tint),
       textBuffer: num(st.textBuffer, d.stars.textBuffer),

@@ -1,4 +1,4 @@
-# Random Universe Generator
+# ASCII Universe Generator
 
 A tiny browser toy that makes a random universe out of ASCII characters: spiral galaxies, comets, ringed planets, pulsars, black holes, rockets, satellites and real constellations. Hit **Randomize** for a new sky; the same seed always gives the same one.
 
@@ -28,11 +28,9 @@ No framework: TypeScript, Vite, a canvas and some CSS.
 | **◀ / ▶** | Steps to the previous or next seed. |
 | **Seed display** | Click it and type a seed to jump straight to that universe. |
 | **Shuffle** (or <kbd>S</kbd>) | Keeps every setting exactly as it is and re-rolls only the seed: new positions and variations, same knobs. |
-| **Autopilot** (or <kbd>A</kbd>) | Flies to a new universe every few seconds. |
-| **Starfield** | Star density (up to 50 per 100k px²), star size (up to 20px), twinkle, colour tint, bloom (0–20%), glyph size and overall speed. |
+| **Starfield** | Star density (up to 50 per 100k px²), star size (10–30px), twinkle, colour tint, bloom (0–20%), glyph size (2–6px) and overall speed. |
 | **Objects** | How many of each of the seven kinds. Click a name to tune that kind's size and speed in the Tuning panel. |
 | **Snapshot** | Saves the current view as a PNG. |
-| **Copy link** | Copies a link to this exact universe. |
 
 ### Same seed, same universe
 

@@ -73,25 +73,15 @@ export function mountUi(app: App, deck: HTMLElement) {
   });
   seedInput.addEventListener("focus", () => seedInput.select());
 
-  const autopilot = h("button", { type: "button", class: "btn toggle", "aria-pressed": false }, h("i", { class: "led", "aria-hidden": true }), "Autopilot");
-  autopilot.addEventListener("click", () => app.setAutopilot(!app.state.autopilot));
-
   const shuffle = button("Shuffle", "", () => app.shuffle());
   shuffle.title = "Keep these settings, re-roll the seed";
-
-  const copy = button("Copy link", "", async () => {
-    const ok = await app.copyLink();
-    copy.textContent = ok ? "Copied" : "Copy failed";
-    window.setTimeout(() => (copy.textContent = "Copy link"), 1500);
-  });
 
   const generate = panel(
     "gen",
     "Generate",
     h("div", { class: "seed" }, h("span", { class: "cap" }, "Seed"), seedInput),
     h("div", { class: "seed-keys" }, button("◀", "step", () => app.step(-1)), button("Randomize", "primary", () => app.randomize()), button("▶", "step", () => app.step(1))),
-    h("div", { class: "btn-pair" }, autopilot, shuffle),
-    h("div", { class: "btn-pair" }, button("Snapshot", "", () => app.snapshot()), copy),
+    h("div", { class: "btn-pair" }, shuffle, button("Snapshot", "", () => app.snapshot())),
   );
 
   /* ── Starfield ── */
@@ -100,11 +90,11 @@ export function mountUi(app: App, deck: HTMLElement) {
     "Starfield",
     ...[
       slider("Density", { min: 0, max: 50, step: 0.5, get: () => cfg().stars.hero, set: (v) => patch((c) => ({ ...c, stars: { ...c.stars, hero: v } })) }),
-      slider("Star size", { min: 4, max: 20, step: 0.5, get: () => cfg().stars.size, set: (v) => patch((c) => ({ ...c, stars: { ...c.stars, size: v } })), fmt: (v) => `${v}px` }),
+      slider("Star size", { min: 10, max: 30, step: 0.5, get: () => cfg().stars.size, set: (v) => patch((c) => ({ ...c, stars: { ...c.stars, size: v } })), fmt: (v) => `${v}px` }),
       slider("Twinkle", { min: 0, max: 1, step: 0.05, get: () => cfg().stars.twinkle, set: (v) => patch((c) => ({ ...c, stars: { ...c.stars, twinkle: v } })), fmt: pct }),
       slider("Colour tint", { min: 0, max: 0.5, step: 0.01, get: () => cfg().stars.tint, set: (v) => patch((c) => ({ ...c, stars: { ...c.stars, tint: v } })), fmt: pct }),
       slider("Bloom", { min: 0, max: 0.2, step: 0.01, get: () => cfg().bloom, set: (v) => patch((c) => ({ ...c, bloom: v })), fmt: pct }),
-      slider("Glyph size", { min: 3, max: 8, step: 0.5, get: () => cfg().glyph, set: (v) => patch((c) => ({ ...c, glyph: v })), fmt: (v) => `${v}px` }),
+      slider("Glyph size", { min: 2, max: 6, step: 0.5, get: () => cfg().glyph, set: (v) => patch((c) => ({ ...c, glyph: v })), fmt: (v) => `${v}px` }),
       slider("Speed", { min: 0.1, max: 2, step: 0.05, get: () => cfg().speed, set: (v) => patch((c) => ({ ...c, speed: v })), fmt: (v) => `${v.toFixed(2)}×` }),
     ].map((s) => track(s).el),
   );
@@ -179,7 +169,6 @@ export function mountUi(app: App, deck: HTMLElement) {
   const hud = {
     seed: document.getElementById("hud-seed")!,
     objects: document.getElementById("hud-objects")!,
-    auto: document.getElementById("hud-auto")!,
   };
 
   const syncLive = () => {
@@ -194,9 +183,6 @@ export function mountUi(app: App, deck: HTMLElement) {
     const s = app.state;
     seedInput.value = pad6(s.seed);
     hud.seed.textContent = pad6(s.seed);
-    hud.auto.hidden = !s.autopilot;
-    autopilot.setAttribute("aria-pressed", String(s.autopilot));
-    autopilot.querySelector(".led")!.classList.toggle("on", s.autopilot);
     nameButtons.forEach((b, id) => b.setAttribute("aria-pressed", String(id === selected)));
     leds.forEach((led, id) => led.classList.toggle("on", s.config.objects[id].count > 0)); // lit while that kind is in the sky
     tuneTitle.textContent = `Tuning · ${OBJECT_META[selected].name}`;
