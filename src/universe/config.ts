@@ -6,7 +6,7 @@ export const DEFAULT_CONFIG: SceneConfig = {
   speed: 1,
   bloom: 0.15,
   // edge and textBuffer only matter on a page with a headline and side margins; in a plain rectangle they stay at 0.
-  stars: { hero: 20, edge: 0, edgeWidth: 0.2, size: 9, twinkle: 0.4, tint: 0.2, textBuffer: 0 },
+  stars: { hero: 20, edge: 0, edgeWidth: 0.2, size: 14, twinkle: 0.4, tint: 0.2, textBuffer: 0 },
   objects: {
     galaxy: { count: 4, size: 92, speed: 1.35 },
     comet: { count: 2, size: 38, speed: 1 },

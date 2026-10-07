@@ -20,5 +20,4 @@ window.addEventListener("keydown", (e) => {
   const key = e.key.toLowerCase();
   if (key === "r") app.randomize();
   else if (key === "s") app.shuffle();
-  else if (key === "a") app.setAutopilot(!app.state.autopilot);
 });

@@ -526,8 +526,7 @@ input[type="range"]::-moz-range-thumb {
   .seed-keys .step:last-child { order: 2; grid-column: 3 / 5; }
   .gen .btn-pair { display: contents; }
   .gen .btn { order: 4; padding: 0 2px; font-size: 9px; letter-spacing: 0.04em; }
-  .gen .btn-pair .toggle { gap: 5px; }
-  .gen .btn-pair .toggle, .gen .btn-pair .btn { grid-column: span 2; }
+  .gen .btn-pair .btn { grid-column: span 2; }
 
   .obj-row { grid-template-columns: 12px 6.4rem 1fr; min-height: 26px; gap: 6px; }
   .obj-name { padding: 4px 6px; font-size: 10px; }

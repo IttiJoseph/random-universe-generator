@@ -56,7 +56,7 @@ export function configFromSeed(seed: number): SceneConfig {
       hero: +lerp(8, 40, rng()).toFixed(1),
       edge: 0,
       edgeWidth: base.stars.edgeWidth,
-      size: +lerp(7, 12, rng()).toFixed(1),
+      size: +lerp(11, 20, rng()).toFixed(1),
       twinkle: +lerp(0.15, 0.8, rng()).toFixed(2),
       tint: +lerp(0.05, 0.32, rng()).toFixed(2),
       textBuffer: 0,
